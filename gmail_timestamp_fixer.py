@@ -6,7 +6,7 @@ Gmail In-Place IMAP Timestamp Fixer & Re-Uploader (Bulletproof Folder Preserver)
 ================================================================================
 Author:       Tino Höhne
 Repository:   Agent47-Scripts/Gmail-IMAP-Timestamp-Fixer
-Version:      1.0.4
+Version:      1.0.5
 License:      MIT License
 
 Description:
@@ -18,13 +18,13 @@ messages folder-by-folder with robust quote escaping for apostrophes and special
 characters:
 1. Iterates over all user-defined IMAP folders.
 2. Fetches raw email bodies and parses original RFC2822 'Date' headers.
-3. Converts parsed headers into native datetime objects.
+3. Converts parsed headers into native timezone-aware datetime objects (Python 3.12).
 4. Appends exact messages back into the same folder with corrected timestamps.
 5. Marks original stale messages as DELETED and EXPUNGES them immediately.
 ================================================================================
 """
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 import os
 import sys
@@ -167,7 +167,8 @@ def escape_folder_for_imap(folder_name):
 def fix_timestamps():
     """
     Main orchestration loop for inspecting IMAP folders, extracting RFC2822 dates,
-    re-uploading messages with corrected timestamps, and removing stale duplicates.
+    enforcing Python 3.12 timezone-aware datetime compliance, re-uploading messages 
+    with corrected timestamps, and removing stale duplicates.
     """
     print(f"[*] Connecting to Gmail IMAP ({GMAIL_USER})...")
     client = connect_imap(GMAIL_HOST, GMAIL_PORT, GMAIL_USER, GMAIL_PASS)
@@ -256,6 +257,12 @@ def fix_timestamps():
                     if not dt_object:
                         skipped_count += 1
                         break
+
+                    # --- PYTHON 3.12 TIMEZONE-AWARE COMPLIANCE ---
+                    if dt_object.tzinfo is None:
+                        dt_object = dt_object.replace(tzinfo=timezone.utc)
+                    else:
+                        dt_object = dt_object.astimezone(timezone.utc)
 
                     # 1. Re-upload email message appended natively into exact folder to preserve labels
                     status, _ = client.append(escaped_folder, flags=None, date_time=dt_object, message=raw_email)
